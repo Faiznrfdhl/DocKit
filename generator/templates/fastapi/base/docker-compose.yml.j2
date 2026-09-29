@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: {{ project_name }}_app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_NAME={{ project_name }}
+      - DB_HOST={{ 'db' if db_enabled else 'localhost' }}
+      - REDIS_HOST={{ 'redis' if redis_enabled else 'localhost' }}
+    {% if db_enabled or redis_enabled %}
+    depends_on:
+    {% endif %}
+    {% if db_enabled %}
+      - db
+    {% endif %}
+    {% if redis_enabled %}
+      - redis
+    {% endif %}
+
+{% if db_enabled %}
+  db:
+    image: postgres:15-alpine
+    container_name: {{ project_name }}_db
+    environment:
+      POSTGRES_USER: dockit
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: {{ project_name }}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+{% endif %}
+{% if redis_enabled %}
+  redis:
+    image: redis:7-alpine
+    container_name: {{ project_name }}_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+{% endif %}
+
+volumes:
+{% if db_enabled %}
+  postgres_data:
+{% endif %}
+{% if redis_enabled %}
+  redis_data:
+{% endif %}

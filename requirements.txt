@@ -1,0 +1,30 @@
+# ==========================================
+# DocKit - Core Dependencies
+# ==========================================
+
+# FastAPI & ASGI Server
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Template Engine
+jinja2==3.1.4
+
+# Validation & Serialization
+pydantic==2.9.2
+
+# Environment Variables
+python-dotenv==1.0.1
+
+# ==========================================
+# Development & Testing (Optional)
+# ==========================================
+pytest==8.3.3
+pytest-asyncio==0.24.0
+httpx==0.27.2
+
+# ==========================================
+# Code Quality (DX)
+# ==========================================
+ruff==0.6.9
+black==24.10.0
+pre-commit==4.0.1
