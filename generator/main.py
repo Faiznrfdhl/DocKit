@@ -1,29 +1,67 @@
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
-from .engine import DocKitEngine
-from pydantic import BaseModel
 import os
 
-app = FastAPI(title="DocKit Generator API")
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
-# Inisialisasi engine dengan folder templates
-engine = DocKitEngine(templates_dir=os.path.join(os.getcwd(), "generator/templates"))
+from .engine import DocKitEngine
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+app = FastAPI(
+    title="DocKit Generator API",
+    description=(
+        "**DocKit — Docker Development Kit.**\n\n"
+        "Generate production-ready project boilerplates in seconds."
+    ),
+    version="0.1.0",
+)
+
+engine = DocKitEngine(templates_dir=TEMPLATES_DIR)
+
 
 class GenerateRequest(BaseModel):
-    framework: str = "fastapi"
-    project_name: str = "my-awesome-project"
+    framework: str = Field("fastapi", examples=["fastapi"])
+    project_name: str = Field("my-awesome-project", examples=["my-awesome-project"])
     db_enabled: bool = True
     redis_enabled: bool = False
 
-@app.post("/generate")
+
+@app.get("/", tags=["Meta"])
+def root():
+    return {
+        "name": "DocKit",
+        "tagline": "Generate production-ready project boilerplates in seconds.",
+        "version": app.version,
+        "docs": "/docs",
+        "available_frameworks": engine.list_frameworks(),
+        "endpoints": {
+            "GET /frameworks": "Daftar framework yang didukung",
+            "POST /generate": "Generate project & download ZIP",
+        },
+    }
+
+
+@app.get("/frameworks", tags=["Meta"])
+def list_frameworks():
+    return {"frameworks": engine.list_frameworks()}
+
+
+@app.post("/generate", tags=["Generator"])
 def generate_project(req: GenerateRequest):
-    context = req.model_dump()
-    zip_file = engine.generate(framework=req.framework, options=context)
-    
+    if not engine.framework_exists(req.framework):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Framework '{req.framework}' belum tersedia. "
+                   f"Pilihan saat ini: {engine.list_frameworks()}",
+        )
+
+    zip_buffer = engine.generate(req.framework, req.model_dump())
     filename = f"{req.project_name}.zip"
-    
+
     return StreamingResponse(
-        zip_file,
+        zip_buffer,
         media_type="application/x-zip-compressed",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

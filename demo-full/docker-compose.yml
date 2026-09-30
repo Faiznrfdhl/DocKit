@@ -1,52 +1,36 @@
 services:
   app:
     build: .
-    container_name: {{ project_name }}_app
+    container_name: demo_full_app
     ports:
       - "8000:8000"
     volumes:
       - ./:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-{% if db_enabled or redis_enabled %}
     depends_on:
-{% if db_enabled %}
       - db
-{% endif %}
-{% if redis_enabled %}
       - redis
-{% endif %}
-{% endif %}
 
-{% if db_enabled %}
   db:
     image: postgres:16-alpine
-    container_name: {{ project_name }}_db
+    container_name: demo_full_db
     environment:
       POSTGRES_USER: ${DB_USER:-dockit}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-      POSTGRES_DB: ${DB_NAME:-{{ project_name }}}
+      POSTGRES_DB: ${DB_NAME:-demo_full}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-{% endif %}
 
-{% if redis_enabled %}
   redis:
     image: redis:7-alpine
-    container_name: {{ project_name }}_redis
+    container_name: demo_full_redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
-{% endif %}
 
-{% if db_enabled or redis_enabled %}
 volumes:
-{% if db_enabled %}
   postgres_data:
-{% endif %}
-{% if redis_enabled %}
   redis_data:
-{% endif %}
-{% endif %}

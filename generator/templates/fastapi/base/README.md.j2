@@ -1,0 +1,36 @@
+# {{ project_name }}
+
+Generated with **DocKit** - Docker Development Kit.
+
+## Stack
+- FastAPI
+{% if db_enabled %}
+- PostgreSQL (SQLAlchemy)
+{% endif %}
+{% if redis_enabled %}
+- Redis
+{% endif %}
+- Docker & Docker Compose
+
+## Installation
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+## Access
+- API: http://localhost:8000
+- Swagger: http://localhost:8000/docs
+{% if db_enabled %}
+- PostgreSQL: localhost:5432
+{% endif %}
+{% if redis_enabled %}
+- Redis: localhost:6379
+{% endif %}
+
+## Testing
+
+```bash
+docker compose exec app pytest
+```

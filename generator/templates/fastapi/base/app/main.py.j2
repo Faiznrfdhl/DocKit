@@ -1,0 +1,32 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+{% if db_enabled %}
+from app.api.routes import items
+from app.core.database import engine
+from app.models.base import Base
+{% endif %}
+{% if redis_enabled %}
+from app.api.routes import cache
+{% endif %}
+from app.api.routes import health
+from app.core.config import settings
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+{% if db_enabled %}
+    Base.metadata.create_all(bind=engine)
+{% endif %}
+    yield
+
+
+app = FastAPI(title=settings.APP_NAME, version="0.1.0", lifespan=lifespan)
+
+app.include_router(health.router, tags=["Health"])
+{% if db_enabled %}
+app.include_router(items.router, prefix="/api/v1")
+{% endif %}
+{% if redis_enabled %}
+app.include_router(cache.router, prefix="/api/v1")
+{% endif %}

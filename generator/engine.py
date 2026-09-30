@@ -1,57 +1,80 @@
-import os
 import io
+import os
 import zipfile
+
 from jinja2 import Environment, FileSystemLoader
 
+
 class DocKitEngine:
+    """Core engine DocKit: render template Jinja2 -> ZIP in memory."""
+
+    # Mapping: nama folder addon -> flag di request
+    ADDON_FLAGS = {
+        "postgres": "db_enabled",
+        "redis": "redis_enabled",
+    }
+
     def __init__(self, templates_dir: str):
+        self.templates_dir = templates_dir
         self.env = Environment(
             loader=FileSystemLoader(templates_dir),
             keep_trailing_newline=True,
-
-            trim_blocks=True, 
-            lstrip_blocks=True
+            trim_blocks=True,    # buang newline setelah block tag Jinja
+            lstrip_blocks=True,  # buang indentasi sebelum block tag
         )
 
+    # ---------- Utility ----------
+    def list_frameworks(self) -> list[str]:
+        """Scan folder templates/ buat daftar framework yang tersedia."""
+        if not os.path.exists(self.templates_dir):
+            return []
+        return sorted(
+            name
+            for name in os.listdir(self.templates_dir)
+            if os.path.isdir(os.path.join(self.templates_dir, name))
+            and not name.startswith(("_", "."))
+        )
+
+    def framework_exists(self, framework: str) -> bool:
+        return framework in self.list_frameworks()
+
+    # ---------- Core ----------
     def generate(self, framework: str, options: dict) -> io.BytesIO:
-        """
-        Merender template dan mengembalikan file ZIP di memori.
-        options = { "db_enabled": True, "redis_enabled": False, "project_name": "my_app" }
-        """
+        if not self.framework_exists(framework):
+            raise ValueError(f"Framework '{framework}' belum tersedia di DocKit.")
+
         memory_file = io.BytesIO()
-        template_base_dir = os.path.join(framework, "base")
-        template_addons_dir = os.path.join(framework, "addons")
 
-        with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            # 1. Render Base Templates (Wajib ada)
-            base_path = os.path.join(self.env.loader.searchpath[0], template_base_dir)
-            self._render_and_zip(zipf, base_path, template_base_dir, options)
+        with zipfile.ZipFile(memory_file, "w", zipfile.ZIP_DEFLATED) as zipf:
+            # 1) Base templates (wajib ada)
+            base_dir = os.path.join(self.templates_dir, framework, "base")
+            self._render_folder(zipf, base_dir, options)
 
-            # 2. Render Addons (PostgreSQL, Redis, dll)
-            if options.get("db_enabled"):
-                db_path = os.path.join(self.env.loader.searchpath[0], template_addons_dir, "postgres")
-                self._render_and_zip(zipf, db_path, "", options)
-                
-            if options.get("redis_enabled"):
-                redis_path = os.path.join(self.env.loader.searchpath[0], template_addons_dir, "redis")
-                self._render_and_zip(zipf, redis_path, "", options)
+            # 2) Addons (opsional, sesuai checklist user)
+            addons_dir = os.path.join(self.templates_dir, framework, "addons")
+            for addon, flag in self.ADDON_FLAGS.items():
+                if options.get(flag):
+                    self._render_folder(zipf, os.path.join(addons_dir, addon), options)
 
         memory_file.seek(0)
         return memory_file
 
-    def _render_and_zip(self, zipf: zipfile.ZipFile, folder_path: str, zip_prefix: str, context: dict):
-        if not os.path.exists(folder_path): return
+    def _render_folder(self, zipf: zipfile.ZipFile, folder_path: str, context: dict):
+        """Render semua file .j2 di satu folder (rekursif) masuk ke ZIP."""
+        if not os.path.exists(folder_path):
+            return
 
         for root, _, files in os.walk(folder_path):
             for file in files:
-                if file.endswith('.j2'):
-                    # Ambil relative path dari folder template
-                    rel_path = os.path.relpath(os.path.join(root, file), self.env.loader.searchpath[0])
-                    template = self.env.get_template(rel_path)
-                    
-                    # Render isi file
-                    rendered_content = template.render(**context)
-                    
-                    # Hapus ekstensi .j2 untuk hasil akhir
-                    arcname = rel_path.replace('.j2', '')
-                    zipf.writestr(arcname, rendered_content)
+                if not file.endswith(".j2"):
+                    continue
+
+                full_path = os.path.join(root, file)
+
+                # Path buat Jinja (relatif terhadap templates/, pakai slash)
+                template_path = os.path.relpath(full_path, self.templates_dir).replace("\\", "/")
+                # Path di DALAM zip (relatif terhadap folder base/addon itu sendiri)
+                arcname = os.path.relpath(full_path, folder_path).replace(".j2", "").replace("\\", "/")
+
+                template = self.env.get_template(template_path)
+                zipf.writestr(arcname, template.render(**context))
