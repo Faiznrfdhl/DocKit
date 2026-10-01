@@ -29,6 +29,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-dockit} -d ${DB_NAME:-{{ project_name }}}"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
 {% endif %}
 
 {% if redis_enabled %}
@@ -42,11 +47,13 @@ services:
 {% endif %}
 
 {% if db_enabled or redis_enabled %}
-volumes:
+    depends_on:
 {% if db_enabled %}
-  postgres_data:
+      db:
+        condition: service_healthy
 {% endif %}
 {% if redis_enabled %}
-  redis_data:
+      redis:
+        condition: service_started
 {% endif %}
 {% endif %}

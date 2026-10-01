@@ -31,7 +31,7 @@ class DocKitEngine:
         return sorted(
             name
             for name in os.listdir(self.templates_dir)
-            if os.path.isdir(os.path.join(self.templates_dir, name))
+            if os.path.isdir(os.path.join(self.templates_dir, name, "base"))  # <- TAMBAHIN "base"
             and not name.startswith(("_", "."))
         )
 

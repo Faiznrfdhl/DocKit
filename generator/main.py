@@ -5,6 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from .engine import DocKitEngine
+from fastapi.middleware.cors import CORSMiddleware
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -16,6 +17,17 @@ app = FastAPI(
         "Generate production-ready project boilerplates in seconds."
     ),
     version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 engine = DocKitEngine(templates_dir=TEMPLATES_DIR)
